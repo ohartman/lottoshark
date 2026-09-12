@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LottoShark</title>
+<meta name="description" content="Scratch-off games ranked by expected return per ticket, from the state lottery's own remaining-prize reports.">
+<link rel="stylesheet" href="styles.css">
+<script src="data/index.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="wordmark" href="#">LottoShark</a>
+    <span class="sub">Scratch-off odds, recalculated from the prizes still out there.</span>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="status" id="status"></p>
+
+  <form class="filters" id="filters" onsubmit="return false">
+    <label>State
+      <select id="state"></select>
+    </label>
+    <label class="search">Game name or number
+      <input id="q" type="search" placeholder="e.g. Money Bags or 1711" autocomplete="off">
+    </label>
+    <label>Price
+      <select id="price"><option value="">Any</option></select>
+    </label>
+    <label class="check"><input id="offsale" type="checkbox"> Show off-sale games</label>
+  </form>
+
+  <div class="scroller">
+    <table class="games" id="games">
+      <thead>
+        <tr>
+          <th class="c-rank">#</th>
+          <th class="c-game" data-sort="name">Game</th>
+          <th class="c-price num" data-sort="price">Price</th>
+          <th class="c-ret num" data-sort="current_return" aria-sort="descending">Return / $1</th>
+          <th class="c-extop num" data-sort="current_return_ex_top">No jackpot</th>
+          <th class="c-edge num" data-sort="edge">vs launch</th>
+          <th class="c-sold num" data-sort="pct_sold">Sold</th>
+          <th class="c-top num" data-sort="top_prize_remaining">Top prizes</th>
+          <th class="c-odds num" data-sort="odds_any_now">Any prize</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p class="empty" id="empty" hidden>No games match.</p>
+  <p class="legend">
+    Return / $1 is the average value paid back per dollar spent on a ticket bought today; $1.00 or more means the unclaimed prizes are worth more than the unsold tickets.
+    "No jackpot" leaves the top prize out. † marks games where the top prize accounts for more than 15¢ of the return.
+    Tap a row for the prize-by-prize breakdown.
+  </p>
+
+  <section class="method" id="method">
+    <h2>Method</h2>
+    <p>Every state lottery publishes, per game, how many prizes at each level were printed and how many are still unclaimed. The overall odds printed on the ticket (for example, 1 in 4.89) give the number of tickets per prize. From those:</p>
+    <ol>
+      <li>Tickets printed = prizes printed × overall odds.</li>
+      <li>Share unsold = unclaimed ÷ printed, measured on the plentiful low prize levels. Prizes are spread evenly through the print run, so the share of small prizes still unclaimed tracks the share of tickets still unsold.</li>
+      <li>Return per $1 = value of unclaimed prizes ÷ tickets unsold ÷ ticket price.</li>
+    </ol>
+    <p>Annuity prizes count at their undiscounted total; "for life" prizes use the state's 20-year minimum. Free-ticket prizes count at the ticket price. "Unclaimed" includes sold winners not yet cashed, so new games read slightly high. Tickets stay on sale after the top prizes are gone; the state says so on every game page.</p>
+    <p>None of this is advice. On average every game here pays back less than it costs.</p>
+    <p class="sources" id="sources"></p>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

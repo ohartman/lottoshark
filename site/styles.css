@@ -120,17 +120,36 @@ h2 { font-size: 17px; margin: 0 0 8px; }
 .method ol { padding-left: 22px; }
 .sources { color: var(--muted); font-size: 13px; }
 
-/* phones: fewer columns, everything else lives in the expanded row */
+.games th .short { display: none; }
+.rank-inline { display: none; }
+
+/* phones: each game is two rows, name on top and all seven numbers beneath, so every
+   column fits in portrait without sideways scrolling */
 @media (max-width: 680px) {
   body { font-size: 14px; }
-  .top .wrap { padding: 12px 16px; }
-  .c-rank, .c-price, .c-edge, .c-sold, .c-top, .c-odds { display: none; }
-  .games th, .games td { padding: 9px 6px; }
-  .logo { width: 46px; height: 30px; }
+  .wrap { padding: 0 12px; }
+  .top .wrap { padding: 12px; }
+  .games thead .c-rank, .games thead .c-game { display: none; }
+  .games th .long { display: none; }
+  .games th .short { display: inline; }
+  .games thead th { padding: 6px 3px; font-size: 11px; }
+  .games th[aria-sort]::after { content: "▾"; }
+  .games th[aria-sort="ascending"]::after { content: "▴"; }
+  .games tbody td { padding: 4px 3px; }
+  .row-title td { padding-top: 10px; border-bottom: 0; }
+  .row-nums td { padding-bottom: 10px; font-size: 13px; white-space: nowrap; }
+  .row-title[aria-expanded="true"], .row-nums[aria-expanded="true"] { background: var(--bg-alt); }
+  .row-nums[aria-expanded="true"] td { border-bottom-color: transparent; }
+  .row-title:hover, .row-nums:hover { background: var(--bg-alt); }
+  .rank-inline { display: inline; color: var(--muted); min-width: 1.6em; font-size: 13px; }
+  .logo { width: 44px; height: 28px; }
   .game-cell { gap: 8px; }
-  .games thead th:first-child, .games tbody td:first-child { padding-left: 0; }
   .detail-inner { grid-template-columns: 1fr; }
   .facts { grid-template-columns: max-content 1fr; }
   .filters label { flex: 1 1 100%; }
   .filters .check { flex-basis: auto; }
+}
+@media (max-width: 400px) {
+  .row-nums td { font-size: 12px; }
+  .games thead th { font-size: 10.5px; }
 }

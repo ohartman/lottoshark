@@ -102,23 +102,34 @@
     return `<img class="logo" src="${esc(src)}" alt="" loading="lazy" onerror="this.className='logo logo-empty';this.removeAttribute('src')">`;
   }
 
+  // On phones each game takes two table rows: the name across the full width, then the
+  // seven numeric columns underneath, so every column stays visible in portrait.
+  const narrow = window.matchMedia("(max-width: 680px)");
+
   function rowHtml(g, i) {
-    const m = g.metrics, off = !onSale(g);
+    const m = g.metrics, off = !onSale(g), stacked = narrow.matches;
     const ret = m
       ? `<span class="${m.current_return >= 1 ? "strong up" : ""}">${money(m.current_return)}</span>${jackpotDriven(m) ? `<span class="dag">†</span>` : ""}`
       : `<span class="meta">n/a</span>`;
     const edge = m ? `<span class="${m.edge > 0.02 ? "up" : m.edge < -0.02 ? "down" : ""}">${signedCents(m.edge)}</span>` : "";
     const topLeft = g.tiers[0] ? `${int(g.top_prize_remaining)} of ${int(g.tiers[0].total)}` : int(g.top_prize_remaining);
-    return `<tr class="row" data-game="${esc(g.game_number)}" tabindex="0" aria-expanded="${state.open === g.game_number}">
-      <td class="c-rank">${i + 1}</td>
-      <td class="c-game"><div class="game-cell">${logoHtml(g)}<div><div class="name">${esc(g.name)}${off ? ` <span class="off">(off sale)</span>` : ""}</div><div class="meta">#${esc(g.game_number)} · ${priceLabel(g.price)}${g.top_prize_label ? " · top " + esc(g.top_prize_label) : ""}</div></div></div></td>
+    const attrs = `data-game="${esc(g.game_number)}" aria-expanded="${state.open === g.game_number}"`;
+    const game = `<div class="game-cell">${stacked ? `<span class="rank-inline">${i + 1}</span>` : ""}${logoHtml(g)}<div><div class="name">${esc(g.name)}${off ? ` <span class="off">(off sale)</span>` : ""}</div><div class="meta">#${esc(g.game_number)} · ${priceLabel(g.price)}${g.top_prize_label ? " · top " + esc(g.top_prize_label) : ""}</div></div></div>`;
+    const nums = `
       <td class="c-price num">${priceLabel(g.price)}</td>
       <td class="c-ret num">${ret}</td>
       <td class="c-extop num">${m ? money(m.current_return_ex_top) : ""}</td>
       <td class="c-edge num">${edge}</td>
       <td class="c-sold num">${m ? m.pct_sold.toFixed(0) + "%" : ""}</td>
       <td class="c-top num">${topLeft}</td>
-      <td class="c-odds num">${m ? oneIn(m.odds_any_now) : ""}</td>
+      <td class="c-odds num">${m ? oneIn(m.odds_any_now) : ""}</td>`;
+    if (stacked) {
+      return `<tr class="row row-title" ${attrs} tabindex="0"><td class="c-game" colspan="7">${game}</td></tr>
+        <tr class="row row-nums" ${attrs}>${nums}</tr>`;
+    }
+    return `<tr class="row" ${attrs} tabindex="0">
+      <td class="c-rank">${i + 1}</td>
+      <td class="c-game">${game}</td>${nums}
     </tr>`;
   }
 
@@ -182,6 +193,11 @@
     const row = els.rows.querySelector(`tr.row[data-game="${num}"]`);
     if (row) row.focus({ preventScroll: true });
   }
+  narrow.addEventListener("change", () => { if (state.code) render(); });
+  window.addEventListener("hashchange", () => {
+    const h = location.hash.match(/#game=(\d+)/);
+    if (h && state.code && h[1] !== state.open && data().games.some((g) => g.game_number === h[1])) toggle(h[1]);
+  });
 
   // ---- storage: remembered state only
   function safeGet(k) { try { return localStorage.getItem("lottoshark:" + k); } catch { return null; } }

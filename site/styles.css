@@ -120,7 +120,6 @@ h2 { font-size: 17px; margin: 0 0 8px; }
 .method ol { padding-left: 22px; }
 .sources { color: var(--muted); font-size: 13px; }
 
-.games th .short { display: none; }
 .rank-inline { display: none; }
 
 /* phones: each game is two rows, name on top and all seven numbers beneath, so every
@@ -130,9 +129,7 @@ h2 { font-size: 17px; margin: 0 0 8px; }
   .wrap { padding: 0 12px; }
   .top .wrap { padding: 12px; }
   .games thead .c-rank, .games thead .c-game { display: none; }
-  .games th .long { display: none; }
-  .games th .short { display: inline; }
-  .games thead th { padding: 6px 3px; font-size: 11px; }
+  .games thead th { padding: 6px 3px; font-size: 11px; white-space: normal; line-height: 1.15; vertical-align: bottom; }
   .games th[aria-sort]::after { content: "▾"; }
   .games th[aria-sort="ascending"]::after { content: "▴"; }
   .games tbody td { padding: 4px 3px; }

@@ -14,6 +14,12 @@ scraper. Each exposes STATE (metadata dict) and fetch_games() -> list[dict]. A n
 Optional keys a scraper may add:
   "tickets_printed": int   when the state publishes the print run but no overall odds;
                            build.py derives odds = tickets_printed / total prizes.
+  "pct_sold": float        share of tickets sold (0-1) when the state publishes it.
+  "unclaimed_value": float total dollar value of unclaimed prizes, when the state publishes that
+                           instead of a prize table (with tickets_printed and pct_sold it gives the
+                           return directly; "pct_step" is the state's rounding of pct_sold).
+A tier may have "unpaid": None when the state publishes no remaining count for it (top-prize-only
+states); the metrics then estimate it and report a return interval.
 
 Only game_number, name, price, tiers are required; everything else defaults to empty.
 Dates are ISO (YYYY-MM-DD) strings or "". tiers must be sorted by value, largest first.

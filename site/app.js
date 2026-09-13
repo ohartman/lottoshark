@@ -26,6 +26,7 @@
   const data = () => window.LOTTO[state.code];
   const onSale = (g) => g.price > 0 && !g.notes.some((n) => /off sale|deadline/.test(n));
   const jackpotDriven = (m) => m && m.current_return - m.current_return_ex_top > 0.15;
+  const rangeText = (lo, hi) => (hi - lo < 0.005 ? "" : `${money(lo)}–${money(hi)}`);
 
   // ---- setup
   // index.js lists {code, name} for every state with data; each state's file is loaded on
@@ -119,18 +120,18 @@
   function rowHtml(g, i) {
     const m = g.metrics, off = !onSale(g);
     const ret = m
-      ? `<span class="${m.current_return >= 1 ? "strong up" : ""}">${money(m.current_return)}</span>${jackpotDriven(m) ? `<span class="dag">†</span>` : ""}`
+      ? `<span class="${m.current_return >= 1 ? "strong up" : ""}">${money(m.current_return)}</span>${jackpotDriven(m) ? `<span class="dag">†</span>` : ""}${m.estimated && rangeText(m.return_low, m.return_high) ? `<span class="range">${rangeText(m.return_low, m.return_high)}</span>` : ""}`
       : `<span class="meta">n/a</span>`;
-    const edge = m ? `<span class="${m.edge > 0.02 ? "up" : m.edge < -0.02 ? "down" : ""}">${signedCents(m.edge)}</span>` : "";
-    const topLeft = g.tiers[0] ? `${int(g.top_prize_remaining)} of ${int(g.tiers[0].total)}` : int(g.top_prize_remaining);
+    const edge = m && m.edge != null ? `<span class="${m.edge > 0.02 ? "up" : m.edge < -0.02 ? "down" : ""}">${signedCents(m.edge)}</span>` : "";
+    const topLeft = g.tiers[0] ? `${g.tiers[0].unpaid == null ? "?" : int(g.top_prize_remaining)} of ${int(g.tiers[0].total)}` : int(g.top_prize_remaining);
     return `<tr class="row" data-game="${esc(g.game_number)}" tabindex="0" aria-expanded="${state.open === g.game_number}">
       <td class="c-rank">${i + 1}</td>
       <td class="c-game"><div class="game-cell">${logoHtml(g)}<div><div class="name">${esc(g.name)}${off ? ` <span class="off">(off sale)</span>` : ""}</div><div class="meta">#${esc(g.game_number)} · ${priceLabel(g.price)}${g.top_prize_label ? " · top " + esc(g.top_prize_label) : ""}</div></div></div></td>
       <td class="c-price num">${priceLabel(g.price)}</td>
       <td class="c-ret num">${ret}</td>
-      <td class="c-extop num">${m ? money(m.current_return_ex_top) : ""}</td>
+      <td class="c-extop num">${m ? money(m.current_return_ex_top) + (m.estimated && rangeText(m.return_ex_top_low, m.return_ex_top_high) ? `<span class="range">${rangeText(m.return_ex_top_low, m.return_ex_top_high)}</span>` : "") : ""}</td>
       <td class="c-edge num">${edge}</td>
-      <td class="c-sold num">${m ? m.pct_sold.toFixed(0) + "%" : ""}</td>
+      <td class="c-sold num">${m ? m.pct_sold.toFixed(0) + "%" + (m.estimated && m.pct_sold_high - m.pct_sold_low >= 1 ? `<span class="range">${m.pct_sold_low.toFixed(0)}–${m.pct_sold_high.toFixed(0)}%</span>` : "") : ""}</td>
       <td class="c-top num">${topLeft}</td>
       <td class="c-odds num">${m ? oneIn(m.odds_any_now) : ""}</td>
     </tr>`;
@@ -140,13 +141,22 @@
     const m = g.metrics;
     if (!m) return "The state has not published prize-level counts for this game yet, so there is no estimate.";
     const cmp = m.edge > 0.02 ? "better than" : m.edge < -0.02 ? "worse than" : "about the same as";
-    let s = m.current_return >= 1
+    let s = m.launch_return == null
+      ? `A ticket bought today returns about ${money(m.current_return)} per $1 on average, from the state's own figures for prize money unclaimed and tickets sold.${m.current_return >= 1 ? " The unclaimed prizes are worth more than the unsold tickets." : ""}`
+      : m.current_return >= 1
       ? `The unclaimed prizes are currently worth more than the unsold tickets: about ${money(m.current_return)} back per $1, against ${money(m.launch_return)} when the game launched.`
       : `A ticket bought today returns about ${money(m.current_return)} per $1 on average, ${cmp} the ${money(m.launch_return)} it returned at launch.`;
     s += jackpotDriven(m)
       ? ` Most of that is the ${esc(g.top_prize_label || "top prize")}; leave it out and the figure is ${money(m.current_return_ex_top)}.`
       : ` Leaving out the top prize, it is ${money(m.current_return_ex_top)}.`;
-    if (g.top_prize_remaining === 0) s += " Every top prize has already been claimed and tickets are still being sold.";
+    if (g.top_prize_remaining === 0 && g.tiers[0] && g.tiers[0].unpaid != null) s += " Every top prize has already been claimed and tickets are still being sold.";
+    if (m.aggregate) {
+      s += ` The state rounds its percent-sold figure, so the return is between ${money(m.return_low)} and ${money(m.return_high)}.`;
+    } else if (m.estimated) {
+      s += m.unknown_tiers
+        ? ` The state publishes remaining counts only for ${m.unknown_tiers === g.tiers.length ? "no" : "the top"} prize levels here, so the share of tickets sold is inferred from those ${m.published_prizes != null ? int(m.published_prizes) + " prizes" : "figures"}; there is a 90% chance the true return is between ${money(m.return_low)} and ${money(m.return_high)}.`
+        : ` This is estimated from limited figures; there is a 90% chance the true return is between ${money(m.return_low)} and ${money(m.return_high)}.`;
+    }
     return s;
   }
 
@@ -155,20 +165,23 @@
     const facts = m ? `<dl class="facts">
         <dt>Ticket price</dt><dd>${priceLabel(g.price)}</dd>
         <dt>Odds on ticket</dt><dd>${esc(g.odds_label || "—")}</dd>
-        <dt>Any prize, now</dt><dd>${oneIn(m.odds_any_now)}</dd>
-        <dt>Top prize, now</dt><dd>${oneIn(m.top_prize_odds_now)} (${int(g.top_prize_remaining)} left)</dd>
-        <dt>Tickets printed</dt><dd>${int(m.total_tickets)} (est.)</dd>
+        ${m.odds_any_now != null ? `<dt>Any prize, now</dt><dd>${oneIn(m.odds_any_now)}</dd>` : ""}
+        ${m.top_prize_odds_now != null ? `<dt>Top prize, now</dt><dd>${oneIn(m.top_prize_odds_now)} (${int(g.top_prize_remaining)} left)</dd>` : ""}
+        <dt>Tickets printed</dt><dd>${int(m.total_tickets)}${m.aggregate ? "" : " (est.)"}</dd>
         <dt>Tickets unsold</dt><dd>${int(m.tickets_remaining)}, ${(100 - m.pct_sold).toFixed(1)}% (est.)</dd>
-        <dt>Prize money unclaimed</dt><dd>${money(m.remaining_prize_money, 0)}</dd>
-        <dt>Return at launch</dt><dd>${money(m.launch_return)} / $1 (${money(m.launch_return_ex_top)} without top prize)</dd>
+        <dt>Prize money unclaimed</dt><dd>${money(m.remaining_prize_money, 0)}${m.estimated ? " (est.)" : ""}</dd>
+        ${m.estimated ? `<dt>Return now, 90% range</dt><dd>${money(m.return_low)} to ${money(m.return_high)} / $1</dd>` : ""}
+        ${m.launch_return != null ? `<dt>Return at launch</dt><dd>${money(m.launch_return)} / $1 (${money(m.launch_return_ex_top)} without top prize)</dd>` : ""}
         ${g.release_date ? `<dt>Released</dt><dd>${dateFmt(g.release_date)}</dd>` : ""}
         ${g.end_date ? `<dt>Claim deadline</dt><dd>${dateFmt(g.end_date)}</dd>` : ""}
       </dl>` : "<div></div>";
     const annuity = g.tiers.some((t) => t.annuity);
     const tiers = g.tiers.length ? `<table class="tiers">
         <thead><tr><th>Prize</th><th>Printed</th><th>Unclaimed</th><th>Left</th></tr></thead>
-        <tbody>${g.tiers.map((t) => `<tr><td>${esc(t.label)}${t.annuity ? "*" : ""}</td><td>${int(t.total)}</td><td>${int(t.unpaid)}</td><td>${t.total ? (100 * t.unpaid / t.total).toFixed(1) + "%" : ""}</td></tr>`).join("")}</tbody>
-        ${annuity ? `<tfoot><tr><td colspan="4">* Annuity, counted at its undiscounted total; for-life prizes at 20 years.</td></tr></tfoot>` : ""}
+        <tbody>${g.tiers.map((t) => t.unpaid == null
+          ? `<tr class="est"><td>${esc(t.label)}${t.annuity ? "*" : ""}</td><td>${int(t.total)}</td><td>${t.unpaid_est != null ? "~" + int(t.unpaid_est) : "—"}</td><td>${t.unpaid_est != null && t.total ? "~" + (100 * t.unpaid_est / t.total).toFixed(0) + "%" : ""}</td></tr>`
+          : `<tr><td>${esc(t.label)}${t.annuity ? "*" : ""}</td><td>${t.total ? int(t.total) : "—"}</td><td>${int(t.unpaid)}</td><td>${t.total ? (100 * t.unpaid / t.total).toFixed(1) + "%" : ""}</td></tr>`).join("")}</tbody>
+        ${annuity || g.tiers.some((t) => t.unpaid == null) ? `<tfoot><tr><td colspan="4">${annuity ? "* Annuity, counted at its undiscounted total; for-life prizes at 20 years. " : ""}${g.tiers.some((t) => t.unpaid == null) ? "~ Not published by the state; estimated from the share of tickets sold." : ""}</td></tr></tfoot>` : ""}
       </table>` : "";
     const notes = g.notes.map((n) => `<p class="note">${esc(n)}</p>`).join("");
     const links = `<div class="links"><a href="${esc(g.url)}" target="_blank" rel="noopener">Official game page</a>${g.pdf ? `<a href="${esc(g.pdf)}" target="_blank" rel="noopener">Official odds sheet (PDF)</a>` : ""}<a href="#${esc(state.code)}/game=${esc(g.game_number)}">Link to this game</a></div>`;

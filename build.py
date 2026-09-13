@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from lotto.fetch import get
-from lotto.metrics import compute
+from lotto.metrics import compute, compute_aggregate
 from lotto.states import ALL
 
 SITE = Path(__file__).parent / "site"
@@ -76,15 +76,18 @@ def normalize(g: dict) -> dict:
     g["game_number"] = str(g["game_number"]).strip()
     g["price"] = float(g.get("price") or 0)
     for t in g["tiers"]:
-        t.setdefault("paid", max(t.get("total", 0) - t.get("unpaid", 0), 0))
-        t.setdefault("unpaid", max(t.get("total", 0) - t.get("paid", 0), 0))
+        # unpaid None = the state publishes no remaining count for this tier
+        if t.get("unpaid") is None and t.get("paid") is not None:
+            t["unpaid"] = max(t.get("total", 0) - t["paid"], 0)
+        t.setdefault("unpaid", None)
+        t.setdefault("paid", None if t["unpaid"] is None else max(t.get("total", 0) - t["unpaid"], 0))
         t.setdefault("annuity", False)
     g["tiers"].sort(key=lambda t: -t["value"])
     if g["tiers"]:
         g.setdefault("top_prize_label", g["tiers"][0]["label"])
         if not g["top_prize_label"]:
             g["top_prize_label"] = g["tiers"][0]["label"]
-        if not g.get("top_prize_remaining"):
+        if not g.get("top_prize_remaining") and g["tiers"][0]["unpaid"] is not None:
             g["top_prize_remaining"] = g["tiers"][0]["unpaid"]
     # States that publish the print run but not the overall odds: derive one.
     total_prizes = sum(t["total"] for t in g["tiers"])
@@ -101,7 +104,11 @@ def build_state(mod) -> None:
     if not games:
         raise RuntimeError("scraper returned no games")
     for g in games:
-        g["metrics"] = compute(g["price"], g["odds"], g["tiers"])
+        if g.get("unclaimed_value") is not None and g.get("tickets_printed") and g.get("pct_sold") is not None:
+            g["metrics"] = compute_aggregate(g["price"], g["tickets_printed"], g["pct_sold"], g["unclaimed_value"],
+                                             [t for t in g["tiers"] if t.get("unpaid") is not None], g.get("pct_step", 0.01))
+        else:
+            g["metrics"] = compute(g["price"], g["odds"], g["tiers"], g.get("pct_sold"))
     new_logos = fetch_logos(meta["code"], games)
     if new_logos:
         print(f"  downloaded {new_logos} new logos")

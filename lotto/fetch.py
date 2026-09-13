@@ -8,7 +8,19 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128 Safari/537.36 scratch-tracker/0.1"
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+# Headers a real browser sends; a few lottery CDNs answer 403/406 without them.
+BROWSER_HEADERS = {
+    "User-Agent": UA,
+    "Accept": "application/json,text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Sec-CH-UA": '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+    "Sec-CH-UA-Mobile": "?0",
+    "Sec-CH-UA-Platform": '"Windows"',
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+}
 
 
 def _open(req: urllib.request.Request, timeout: int):
@@ -38,7 +50,7 @@ def get(
 
     data: bytes are sent as-is; a dict is form-encoded. json_body: any JSON-serialisable
     object, sent with a JSON content type. Retries transient failures with a short pause."""
-    h = {"User-Agent": UA, "Accept": "application/json,text/html;q=0.9,*/*;q=0.8"}
+    h = dict(BROWSER_HEADERS)
     if headers:
         h.update(headers)
     body = None
@@ -57,14 +69,16 @@ def get(
             with _open(req, timeout) as r:
                 return r.read()
         except urllib.error.HTTPError as e:
-            if e.code < 500 or attempt == retries:
+            # 403/406/429 from a CDN are often a momentary bot-score decision; a pause and
+            # another try usually gets through. Other 4xx are real.
+            if (e.code < 500 and e.code not in (403, 406, 429)) or attempt == retries:
                 raise
             last = e
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
             if attempt == retries:
                 raise
             last = e
-        time.sleep(1.5 * (attempt + 1))
+        time.sleep(4.0 * (attempt + 1))
     raise RuntimeError(f"unreachable: {last}")
 
 
@@ -76,7 +90,7 @@ def get_json(url: str, timeout: int = 60, **kw):
     return json.loads(get(url, timeout, **kw).decode("utf-8"))
 
 
-def fetch_many(fn, items, workers: int = 6):
+def fetch_many(fn, items, workers: int = 4):
     """Run fn(item) for each item on a small thread pool; return results in order.
     Per-game page scrapers use this so a 100-game state takes seconds, not minutes.
     An exception in fn is returned in place of the result so one bad game does not

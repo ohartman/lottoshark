@@ -9,6 +9,7 @@ opened straight from disk (file://) as well as from any static host.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import time
@@ -142,6 +143,37 @@ def write_index() -> None:
     (OUT / "index.js").write_text(f"window.LOTTO_STATES = {json.dumps(states)};\n", encoding="utf-8")
 
 
+# Where the site is published. When a state's scraper fails and there is no data file on
+# disk (a fresh CI checkout has none), yesterday's file is fetched from here so the state
+# stays on the site, marked stale by its fetched_at date.
+SITE_URL = os.environ.get("LOTTO_SITE_URL", "https://ohartman.github.io/lottoshark").rstrip("/")
+
+
+def restore_previous(code: str) -> bool:
+    path = OUT / f"{code.lower()}.js"
+    if path.exists():
+        return True
+    try:
+        js = get(f"{SITE_URL}/data/{code.lower()}.js", timeout=30)
+    except Exception as e:  # noqa: BLE001
+        print(f"  no previous data for {code} at {SITE_URL}: {e}")
+        return False
+    OUT.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(js)
+    # Keep the logos it references so the rows still show art.
+    LOGOS.mkdir(parents=True, exist_ok=True)
+    n = 0
+    for name in set(re.findall(r'"logo":"logos/([^"]+)"', js.decode("utf-8", "replace"))):
+        if not (LOGOS / name).exists():
+            try:
+                (LOGOS / name).write_bytes(get(f"{SITE_URL}/logos/{name}", timeout=30))
+                n += 1
+            except Exception:  # noqa: BLE001
+                pass
+    print(f"  restored previous data for {code} from {SITE_URL} ({n} logos)")
+    return True
+
+
 def main(argv: list[str]) -> int:
     want = {a.upper() for a in argv[1:]}
     mods = [m for m in ALL if not want or m.STATE["code"] in want]
@@ -155,6 +187,7 @@ def main(argv: list[str]) -> int:
         except Exception as e:  # one broken state should not block the rest
             failed.append((m.STATE["code"], f"{type(e).__name__}: {e}"))
             print(f"{m.STATE['code']}: FAILED: {e}")
+            restore_previous(m.STATE["code"])
     write_index()
     # A failed state keeps its previous data file (the site shows its date as stale).
     # build-failures.txt is read by the GitHub workflow, which opens an issue listing them.

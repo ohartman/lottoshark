@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pillow playwright
-      - name: Install headless Chromium (Ohio and Oregon assemble their pages in the browser)
+      - name: Install headless Chromium (AR, IL, OH and OR need a real browser)
         run: python -m playwright install --with-deps chromium
       - name: Fetch state data and compute metrics
         id: build

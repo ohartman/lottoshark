@@ -64,3 +64,62 @@ def all_requests(ctx, url: str, settle_ms: int = 4000) -> list[str]:
     page.wait_for_timeout(settle_ms)
     page.close()
     return seen
+
+
+CHALLENGE = ("<title>Just a moment", "Verify you are human")
+
+
+class Session:
+    """A browser session that loads pages and waits for the content we need. Cloudflare
+    clears its challenge within seconds for a fresh session but tends to re-challenge a
+    session that has already browsed a site, so a page that comes back as a challenge is
+    retried once in a brand-new session."""
+
+    def __init__(self):
+        self._cm = None
+        self.ctx = None
+        self._open()
+
+    def _open(self):
+        self._cm = browser()
+        self.ctx = self._cm.__enter__()
+
+    def renew(self):
+        self.close()
+        self._open()
+
+    def close(self):
+        if self._cm is not None:
+            self._cm.__exit__(None, None, None)
+            self._cm = None
+            self.ctx = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def _load_once(self, url: str, selector: str | None, settle_ms: int, timeout_ms: int) -> str:
+        page = self.ctx.new_page()
+        try:
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=max(timeout_ms, 30000))
+            except Exception:  # noqa: BLE001 - navigation timed out; treat like a challenge
+                return "<title>Just a moment</title>"
+            if selector:
+                try:
+                    page.wait_for_selector(selector, timeout=timeout_ms)
+                except Exception:  # noqa: BLE001 - return whatever rendered
+                    pass
+            page.wait_for_timeout(settle_ms)
+            return page.content()
+        finally:
+            page.close()
+
+    def load(self, url: str, selector: str | None = None, settle_ms: int = 500, timeout_ms: int = 20000) -> str:
+        html = self._load_once(url, selector, settle_ms, timeout_ms)
+        if any(c in html for c in CHALLENGE):
+            self.renew()
+            html = self._load_once(url, selector, settle_ms, timeout_ms)
+        return "" if any(c in html for c in CHALLENGE) else html

@@ -12,8 +12,8 @@ python -m http.server 8765 -d site     # then open http://localhost:8765
 ```
 
 No dependencies beyond Python 3.11+ for most states. Pillow is optional (it shrinks the
-game logos). Ohio and Oregon need a headless browser: `pip install playwright &&
-python -m playwright install chromium`; without it those two states are skipped.
+game logos). Arkansas, Illinois, Ohio and Oregon need a headless browser: `pip install
+playwright && python -m playwright install chromium`; without it those states are skipped.
 `site/` is a plain static site and can be dropped on any host. Opening `site/index.html`
 straight from disk also works because the data ships as JS, not JSON.
 
@@ -47,6 +47,7 @@ site/data/             generated, one file per state plus index.js
 | State | Sources |
 | ----- | ------- |
 | Arizona | [arizonalottery.com: Scratchers prizes remaining](https://www.arizonalottery.com/scratchers/). The lottery's public JSON API (api.arizonalottery.com/v2) lists every active scratcher with all prize tiers: totalCount printed, count remaining, odds, price, dates. The www site itself sits behind a bot challenge, so there are no ticket images. |
+| Arkansas | [myarkansaslottery.com: Instant Games](https://www.myarkansaslottery.com/games/instant). myarkansaslottery.com sits behind a Cloudflare challenge that plain requests cannot pass, so a headless browser loads the instant-games listing and each game page, which has a table of every tier's total and estimated remaining prizes, plus price, overall odds, game number and launch date. |
 | California | [calottery.com: Scratchers](https://www.calottery.com/scratchers). calottery.com's Sitecore JSON list gives every scratcher with price, odds, launch date and art; each game page has a server-rendered table of every tier with "remaining of total". |
 | Colorado | [coloradolottery.com: Scratch Insider](https://www.coloradolottery.com/en/player-tools/scratch-insider/). The Scratch Insider table lists every game with price, odds, dates, payout percentage and how many top prizes remain; each game page has the full printed prize structure. Only the top prize has a remaining count, so the return is an estimate with a range (see lotto/metrics.py). |
 | Connecticut | [ctlottery.com: Scratch Games](https://ctlottery.com/games/scratch-games). ctlottery.com is a Next.js site whose server payload embeds the game list and, on each game page, a "game" record with every prize tier (total, remaining), the overall odds and the number of tickets printed. The JSON is pulled out of the payload string with regexes; dollar signs are doubled in it. |
@@ -54,6 +55,7 @@ site/data/             generated, one file per state plus index.js
 | Florida | [floridalottery.com: Top Remaining Prizes](https://floridalottery.com/games/scratch-offs/top-remaining-prizes). One JSON call (the site's own scratch-games API, which wants an x-partner header) returns every game with all tiers: printed, paid, remaining, plus price, odds and dates. Ticket art comes from the site's content JSON. |
 | Georgia | [galottery.com: Scratchers Top Prizes Claimed](https://www.galottery.com/en-us/games/scratchers/scratchers-top-prizes-claimed.html). galottery.com's instant-games API returns every game with all tiers (winningTickets printed, paidTickets claimed). Prices are in cents and prize amounts in dollars x 10,000. Annuitised top prizes are encoded as amount 0; the top-prizes page carries their label. Overall odds live only in each game's page JSON. |
 | Idaho | [idaholottery.com: Scratch Games remaining prizes](https://www.idaholottery.com/games/scratch?view=remaining_prizes). Drupal JSON:API on idaholottery.com: every scratch game with price, odds, percent sold, dates, thumbnail and a full prize table (printed, amount, remaining, tier odds). Tiers under $25 sometimes have no remaining count; those are filled in from the state's own percent-sold figure, which is the same assumption the metrics use anyway. |
+| Illinois | [illinoislottery.com: Unpaid Instant Game Prizes](https://www.illinoislottery.com/about-the-games/unpaid-instant-games-prizes). illinoislottery.com sits behind a Cloudflare challenge that plain requests cannot pass, so a headless browser loads the unpaid-prizes page (every game with every tier's total and unclaimed counts, price and game number) and the game hub's pages, whose game pages give the overall odds. Games no longer on the hub have no odds and no estimate. |
 | Indiana | [hoosierlottery.com: Scratch-offs](https://hoosierlottery.com/games/scratch-off/). hoosierlottery.com's scratch-off listing carries each game's number, name, price, odds and art; each game page has a table of every tier (unclaimed, total). |
 | Iowa | [ialottery.com: Remaining Prizes](https://ialottery.com/Pages/Games/RemainingPrizes.aspx). One page lists claimed and unclaimed counts for every prize of $50 and up; each game's detail page lists the odds of every prize level and the overall odds. Printed counts for the small prizes are reconstructed from their odds and the print run implied by the published tiers; their remaining counts are estimated (see lotto/metrics.py). |
 | Kansas | [playonkansas.com: Scratch and Pull Tabs](https://playonkansas.com/games/scratch-and-pull-tabs). playonkansas.com is a Next.js site; the listing's server payload carries every game (number, price, dates, art) and each game page has a table of remaining prizes for every level, but no printed counts. Tickets unsold are taken as prizes remaining times the overall odds (compute_remaining_only). |
@@ -84,8 +86,8 @@ site/data/             generated, one file per state plus index.js
 | Wisconsin | [wilottery.com: Scratch Games](https://wilottery.com/games/instant-games/scratch-games). Each game page gives price, odds, start date and the top prize's printed and remaining counts; its features-and-procedures page gives the approximate printed count for every prize level. Only the top prize has a remaining count, so the return is an estimate with a range. |
 
 `docs/survey/` has verified notes on the data every other state publishes, with endpoints and
-sample payloads, from a survey done in September 2026. Not included: AR, IL, TN sit behind Cloudflare
-challenges; RI needs a player session; DE publishes no printed counts; ND and WY sell no scratch
+sample payloads, from a survey done in September 2026. Not included: TN's Cloudflare challenge never clears,
+even in a headless browser; RI needs a player session; DE publishes no printed counts; ND and WY sell no scratch
 tickets; AL, AK, HI, NV, UT have no lottery.
 
 ### Adding a state

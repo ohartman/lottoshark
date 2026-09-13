@@ -153,10 +153,13 @@ def compute(price: float, odds: float | None, tiers: list[dict], pct_sold: float
         u = u_lo = u_hi = min(max(1.0 - pct_sold, u_floor), 1.0)
         pool_n = None
     else:
+        # Non-cash tiers (TV-show entries, valued at 0) are not claimed like cash and would
+        # distort the sample, so they stay in the ticket count but out of the pool.
+        cash = [t for t in known if t["value"] > 0] or known
         if unknown:
-            pool = known  # every published tier counts when the low tiers are missing
+            pool = cash  # every published tier counts when the low tiers are missing
         else:
-            pool = [t for t in known if t["total"] >= STABLE_TIER_MIN] or known
+            pool = [t for t in cash if t["total"] >= STABLE_TIER_MIN] or cash
         pool_n = sum(t["total"] for t in pool)
         pool_k = min(sum(t["unpaid"] for t in pool), pool_n)
         a, b = pool_k + 0.5, pool_n - pool_k + 0.5

@@ -11,7 +11,9 @@ python build.py NY       # just one state
 python -m http.server 8765 -d site     # then open http://localhost:8765
 ```
 
-No dependencies beyond Python 3.11+ (Pillow is optional; it shrinks the game logos).
+No dependencies beyond Python 3.11+ for most states. Pillow is optional (it shrinks the
+game logos). Ohio and Oregon need a headless browser: `pip install playwright &&
+python -m playwright install chromium`; without it those two states are skipped.
 `site/` is a plain static site and can be dropped on any host. Opening `site/index.html`
 straight from disk also works because the data ships as JS, not JSON.
 
@@ -69,7 +71,9 @@ site/data/             generated, one file per state plus index.js
 | New Mexico | [nmlottery.com: Scratchers](https://www.nmlottery.com/games/scratchers/). nmlottery.com/games/scratchers/ is one server-rendered page with a block per game: price, game number, start date, overall odds, art, and a table of every tier (prize, odds, printed, remaining). |
 | New York | [data.ny.gov: Scratch-Off Game Daily Prize Status Report](https://data.ny.gov/d/nzqa-7unk); [nylottery.ny.gov: Scratch-Off Games](https://nylottery.ny.gov/scratch-off-games).  |
 | North Carolina | [nclottery.com: Scratch-Off Prizes Remaining](https://nclottery.com/scratch-off-prizes-remaining). nclottery.com/scratch-off-prizes-remaining is one server-rendered page with a table per game: value, odds, total, remaining for every tier, plus price, game number, name and thumbnail. Overall odds are derived from the print run implied by the biggest tier's odds. |
+| Ohio | [ohiolottery.com: Scratch-Offs Prizes Remaining](https://www.ohiolottery.com/games/scratch-offs/prizes-remaining). ohiolottery.com renders its scratch-off pages in the browser from an API the page authorises itself. A headless browser loads the public prizes-remaining page (every game with every tier's printed and remaining counts) and the scratch-offs listing (price, odds, dates, page path); this code never touches the token. |
 | Oklahoma | [oklottery.com: Scratchers](https://oklottery.com/games/scratchers). oklottery.com is a Next.js site; the server-component payload (RSC: 1 header) of each game page embeds prizeDetails with every tier's total and remaining, plus odds, price, dates, tickets printed and art. |
+| Oregon | [oregonlottery.org: Scratch-its](https://www.oregonlottery.org/scratch-its/list/). oregonlottery.org fills its scratch-its pages in the browser from the lottery's game-info API, which the page authorises itself. A headless browser loads the public list page (every game with price, odds, dates, sell-through and unclaimed value) and each current game's page, whose API response carries every prize tier's total and remaining. |
 | South Dakota | [lottery.sd.gov: Scratch Games](https://lottery.sd.gov/scratch-games/). lottery.sd.gov proxies IGT's instant-games API (all tiers, printed and paid, cents) and runs a headless WordPress whose GraphQL gives the slug, status and art for each game. Overall odds appear only as text on the game's page. |
 | Texas | [texaslottery.com: Scratch Ticket Prizes Remaining (CSV)](https://www.texaslottery.com/export/sites/lottery/Games/Scratch_Offs/scratchoff.csv); [texaslottery.com: Scratch Tickets](https://www.texaslottery.com/export/sites/lottery/Games/Scratch_Offs/all.html).  |
 | Vermont | [vtlottery.com: Outstanding Prizes](https://vtlottery.com/games/instant-tickets/outstanding-prizes). One table lists every game with price, tickets printed, percent sold, total unclaimed prize value and the unclaimed counts for its top prize levels. No prize structure is published, so the return comes straight from unclaimed value divided by unsold tickets (compute_aggregate), with a range from the whole-percent rounding. |
@@ -80,8 +84,7 @@ site/data/             generated, one file per state plus index.js
 
 `docs/survey/` has verified notes on the data every other state publishes, with endpoints and
 sample payloads, from a survey done in September 2026. Not included: AR, IL, TN sit behind Cloudflare
-challenges; OH and OR gate their APIs behind credentials embedded in their sites' scripts;
-RI needs a player session; PA and DE publish no printed counts; ND and WY sell no scratch
+challenges; RI needs a player session; PA and DE publish no printed counts; ND and WY sell no scratch
 tickets; AL, AK, HI, NV, UT have no lottery.
 
 ### Adding a state

@@ -33,10 +33,10 @@ jobs:
         id: build
         run: python build.py
       - name: Report failed states
-        # Runs whether or not the build step succeeded. A state that failed keeps its
-        # previous data; this opens (or updates) one issue listing what broke so it gets
-        # noticed. Closing the issue re-arms it.
-        if: always()
+        # Runs whether or not the build step succeeded (but not when the run was cancelled
+        # by a newer push). A state that failed keeps its previous data; this opens (or
+        # updates) one issue listing what broke so it gets noticed. Closing the issue re-arms it.
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

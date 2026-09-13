@@ -1,6 +1,7 @@
 """Registry of state scrapers.
 
-Each module exposes STATE (metadata dict) and fetch_games() -> list[dict]. A normalized game:
+Every module in this package whose name is a two-letter code (ny.py, tx.py, ...) is a state
+scraper. Each exposes STATE (metadata dict) and fetch_games() -> list[dict]. A normalized game:
 
   {
     "game_number": "1711", "name": "MONEY BAGS", "price": 1.0, "odds": 4.89, "odds_label": "1 in 4.89",
@@ -10,8 +11,21 @@ Each module exposes STATE (metadata dict) and fetch_games() -> list[dict]. A nor
     "notes": []
   }
 
-To add a state: create lotto/states/<code>.py with the same two names and append it to ALL.
-"""
-from . import ny
+Optional keys a scraper may add:
+  "tickets_printed": int   when the state publishes the print run but no overall odds;
+                           build.py derives odds = tickets_printed / total prizes.
 
-ALL = [ny]
+Only game_number, name, price, tiers are required; everything else defaults to empty.
+Dates are ISO (YYYY-MM-DD) strings or "". tiers must be sorted by value, largest first.
+
+To add a state: create lotto/states/<code>.py with the same two names. Nothing else to register.
+"""
+from __future__ import annotations
+
+import importlib
+import pkgutil
+
+ALL = []
+for _m in sorted(pkgutil.iter_modules(__path__)):
+    if len(_m.name) == 2 and _m.name.isalpha():
+        ALL.append(importlib.import_module(f"{__name__}.{_m.name}"))

@@ -28,17 +28,30 @@
   const jackpotDriven = (m) => m && m.current_return - m.current_return_ex_top > 0.15;
 
   // ---- setup
+  // index.js lists {code, name} for every state with data; each state's file is loaded on
+  // demand so the page does not download 40 states' worth of games to show one.
+  const STATES = window.LOTTO_STATES || [];
+  const loaded = {};
+  function loadState(code) {
+    if (loaded[code]) return loaded[code];
+    loaded[code] = loadScript(`data/${code.toLowerCase()}.js`).then(() => !!(window.LOTTO && window.LOTTO[code]));
+    return loaded[code];
+  }
+
   function loadStates() {
-    const codes = (window.LOTTO_STATES || []).filter((c) => window.LOTTO && window.LOTTO[c]);
+    const codes = STATES.map((s) => (typeof s === "string" ? s : s.code));
     if (!codes.length) {
       els.state.innerHTML = "<option>None</option>";
       els.empty.hidden = false;
       els.empty.textContent = "No data found. Run python build.py, then reload.";
       return false;
     }
-    els.state.innerHTML = codes.map((c) => `<option value="${c}">${esc(window.LOTTO[c].name)}</option>`).join("");
+    els.state.innerHTML = STATES.map((s) => typeof s === "string"
+      ? `<option value="${s}">${esc(s)}</option>`
+      : `<option value="${esc(s.code)}">${esc(s.name)}</option>`).join("");
+    const fromHash = (location.hash.match(/#([A-Za-z]{2})(?:[/=]|$)/) || [])[1];
     const saved = safeGet("state");
-    state.code = codes.includes(saved) ? saved : codes[0];
+    state.code = codes.includes((fromHash || "").toUpperCase()) ? fromHash.toUpperCase() : codes.includes(saved) ? saved : codes[0];
     els.state.value = state.code;
     return true;
   }
@@ -56,7 +69,8 @@
     const avg = live.length ? live.reduce((s, g) => s + g.metrics.current_return, 0) / live.length : 0;
     const above = live.filter((g) => g.metrics.current_return >= 1).length;
     const when = new Date(d.fetched_at);
-    els.status.textContent =
+    const stale = Date.now() - when.getTime() > 36 * 3600 * 1000;
+    els.status.textContent = (stale ? "Stale data: the last successful fetch for this state was " + when.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ". " : "") +
       `${d.name}: ${live.length} games on sale, ${shown} shown. Average return ${Math.round(avg * 100)}¢ per $1; ` +
       `${above === 0 ? "none" : above} ${above === 1 ? "game is" : "games are"} at or above $1.00. ` +
       `Data from the state as of ${when.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${when.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}.`;
@@ -157,7 +171,7 @@
         ${annuity ? `<tfoot><tr><td colspan="4">* Annuity, counted at its undiscounted total; for-life prizes at 20 years.</td></tr></tfoot>` : ""}
       </table>` : "";
     const notes = g.notes.map((n) => `<p class="note">${esc(n)}</p>`).join("");
-    const links = `<div class="links"><a href="${esc(g.url)}" target="_blank" rel="noopener">Official game page</a>${g.pdf ? `<a href="${esc(g.pdf)}" target="_blank" rel="noopener">Official odds sheet (PDF)</a>` : ""}<a href="#game=${esc(g.game_number)}">Link to this game</a></div>`;
+    const links = `<div class="links"><a href="${esc(g.url)}" target="_blank" rel="noopener">Official game page</a>${g.pdf ? `<a href="${esc(g.pdf)}" target="_blank" rel="noopener">Official odds sheet (PDF)</a>` : ""}<a href="#${esc(state.code)}/game=${esc(g.game_number)}">Link to this game</a></div>`;
     const art = g.image ? `<img class="art" src="${esc(g.logo || g.image)}" alt="${esc(g.name)} ticket" loading="lazy" onerror="this.remove()">` : "";
     return `<tr class="detail" data-detail="${esc(g.game_number)}"><td colspan="9"><div class="detail-inner">
       <p class="verdict">${verdict(g)}</p>${facts}${tiers}${notes}${links}${art}
@@ -177,13 +191,13 @@
 
   function toggle(num) {
     state.open = state.open === num ? null : num;
-    if (history.replaceState) history.replaceState(null, "", state.open ? "#game=" + state.open : location.pathname);
+    if (history.replaceState) history.replaceState(null, "", state.open ? `#${state.code}/game=${state.open}` : `#${state.code}`);
     render();
     const row = els.rows.querySelector(`tr.row[data-game="${num}"]`);
     if (row) row.focus({ preventScroll: true });
   }
   window.addEventListener("hashchange", () => {
-    const h = location.hash.match(/#game=(\d+)/);
+    const h = location.hash.match(/game=([\w-]+)/);
     if (h && state.code && h[1] !== state.open && data().games.some((g) => g.game_number === h[1])) toggle(h[1]);
   });
 
@@ -192,7 +206,16 @@
   function safeSet(k, v) { try { localStorage.setItem("lottoshark:" + k, v); } catch { /* ignore */ } }
 
   // ---- events
-  els.state.addEventListener("change", () => { state.code = els.state.value; safeSet("state", state.code); state.open = null; fillPrices(); render(); });
+  els.state.addEventListener("change", () => {
+    const code = els.state.value;
+    els.status.textContent = "Loading…";
+    loadState(code).then((ok) => {
+      if (!ok) { els.status.textContent = `No data for ${code}.`; els.state.value = state.code; return; }
+      state.code = code; safeSet("state", code); state.open = null;
+      if (history.replaceState) history.replaceState(null, "", `#${code}`);
+      fillPrices(); render();
+    });
+  });
   els.q.addEventListener("input", () => { state.q = els.q.value; render(); });
   els.price.addEventListener("change", () => { state.price = els.price.value; render(); });
   els.offsale.addEventListener("change", () => { state.offsale = els.offsale.checked; render(); });
@@ -216,10 +239,11 @@
   function loadScript(src) {
     return new Promise((resolve) => { const s = document.createElement("script"); s.src = src; s.onload = resolve; s.onerror = resolve; document.head.appendChild(s); });
   }
-  Promise.all((window.LOTTO_STATES || []).map((c) => loadScript(`data/${c.toLowerCase()}.js`))).then(() => {
-    if (!loadStates()) return;
+  if (!loadStates()) return;
+  loadState(state.code).then((ok) => {
+    if (!ok) { els.status.textContent = `No data for ${state.code}.`; return; }
     fillPrices();
-    const h = location.hash.match(/#game=(\d+)/);
+    const h = location.hash.match(/game=([\w-]+)/);
     if (h && data().games.some((g) => g.game_number === h[1])) {
       state.open = h[1];
       const g = data().games.find((x) => x.game_number === h[1]);

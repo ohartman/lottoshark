@@ -1,1 +1,1 @@
-window.LOTTO_STATES = ["NY"];
+window.LOTTO_STATES = [{"code": "NY", "name": "New York"}];

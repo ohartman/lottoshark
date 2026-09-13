@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   schedule:
-    # New York refreshes its report around 7:30 AM Eastern. 13:30 UTC is after that year-round.
+    # Most states refresh overnight or early morning Eastern. 13:30 UTC is after that year-round.
     - cron: "30 13 * * *"
   workflow_dispatch:
 
@@ -12,6 +12,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  issues: write
 
 concurrency:
   group: pages
@@ -27,8 +28,35 @@ jobs:
           python-version: "3.12"
       - run: pip install pillow
       - name: Fetch state data and compute metrics
+        id: build
         run: python build.py
+      - name: Report failed states
+        # Runs whether or not the build step succeeded. A state that failed keeps its
+        # previous data; this opens (or updates) one issue listing what broke so it gets
+        # noticed. Closing the issue re-arms it.
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          set -e
+          failures=$(cat build-failures.txt 2>/dev/null || true)
+          if [ -z "$failures" ] && [ "$BUILD_OUTCOME" = "success" ]; then
+            echo "all states built"; exit 0
+          fi
+          title="Daily build: scraper failures"
+          body=$(printf 'The scheduled build on %s had problems.\n\nBuild step: **%s**\n\nFailed states:\n```\n%s\n```\n\nRun: %s\n\nA failed state keeps its previous data on the site until a build succeeds. Close this issue once fixed; it will be reopened if it fails again.' \
+            "$(date -u +%Y-%m-%d)" "$BUILD_OUTCOME" "${failures:-(none; the build step itself failed, see the run log)}" "$RUN_URL")
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label build-failure --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh label create build-failure --repo "$GITHUB_REPOSITORY" --color B60205 --description "A state scraper is failing" 2>/dev/null || true
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label build-failure --body "$body"
+          fi
       - uses: actions/upload-pages-artifact@v3
+        if: steps.build.outcome == 'success'
         with:
           path: site
 
@@ -41,3 +69,23 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  notify-on-failure:
+    # Catches everything the step above cannot: a checkout or pip failure, a deploy error,
+    # a cancelled run. Uses the same issue so there is one place to look.
+    needs: [build, deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Daily build: scraper failures"
+          body="The workflow run failed outside the scraper step (checkout, deploy, or setup). See $RUN_URL"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label build-failure --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh label create build-failure --repo "$GITHUB_REPOSITORY" --color B60205 2>/dev/null || true
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label build-failure --body "$body"
+          fi

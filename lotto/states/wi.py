@@ -21,7 +21,7 @@ LIST = SITE + "/games/instant-games/scratch-games?page={p}"
 
 
 def _game(path: str) -> dict:
-    h = get_text(SITE + path, timeout=40)
+    h = get_text(SITE + path, timeout=90)
     t = text(h)
     f = lambda k: (re.search(re.escape(k) + r"\s*:?\s*(\S[^\n]{0,24})", t) or [None, ""])[1]
     n = re.search(r"Game Number\s*(\d+)", t)
@@ -35,7 +35,7 @@ def _game(path: str) -> dict:
     feat = re.search(r'href="([^"]*features-procedures[^"]*)"', h)
     tiers = []
     if feat:
-        fh = get_text(SITE + feat.group(1) if feat.group(1).startswith("/") else feat.group(1), timeout=40)
+        fh = get_text(SITE + feat.group(1) if feat.group(1).startswith("/") else feat.group(1), timeout=90)
         for tb in tables(fh):
             rows = [(r[0].strip(), num(r[1])) for r in tb if len(r) >= 2 and r[0].strip().startswith("$")]
             if rows:
@@ -68,7 +68,7 @@ def fetch_games() -> list[dict]:
     today = date.today().isoformat()
     paths: list[str] = []
     for p in range(0, 25):
-        h = get_text(LIST.format(p=p), timeout=60)
+        h = get_text(LIST.format(p=p), timeout=90)
         items = re.findall(r'<div class="instant-listing-item[^"]*"[^>]*data-endd="([^"]*)"[^>]*>\s*<a href="(/games/instant-games/[a-z0-9-]+-\d{4})"', h)
         if not items:
             break

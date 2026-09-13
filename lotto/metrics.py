@@ -39,10 +39,10 @@ def parse_prize_label(label: str, ticket_price: float = 0.0) -> tuple[float, boo
     m = re.match(r"\$?\s*(\d+(?:\.\d+)?)\s*(K|M)?\s*\(.*(?:/YR|/WK|LIFE|\bLF\b|YEAR|WEEK)", s)
     if m:
         return float(m.group(1)) * {"K": 1_000, "M": 1_000_000}.get(m.group(2) or "", 1), True
-    m = re.search(r"\$?\s*(\d+(?:\.\d+)?)\s*(K|M)?\b", s)
+    m = re.search(r"\$?\s*(\d+(?:\.\d+)?)\s*(MILLION|THOUSAND|MIL|K|M)?\b", s)
     if not m:
         return 0.0, False
-    base = float(m.group(1)) * {"K": 1_000, "M": 1_000_000}.get(m.group(2) or "", 1)
+    base = float(m.group(1)) * {"K": 1_000, "THOUSAND": 1_000, "M": 1_000_000, "MIL": 1_000_000, "MILLION": 1_000_000}.get(m.group(2) or "", 1)
     weekly = re.search(r"\bWK\b|/WK|WEEK", s) is not None
     m2 = re.search(r"/YR/(\d+)", s) or re.search(r"(?:A|PER)\s*YEAR\s*FOR\s*(\d+)\s*Y", s)
     if m2:
@@ -65,7 +65,9 @@ def parse_prize_label(label: str, ticket_price: float = 0.0) -> tuple[float, boo
 def compute(price: float, odds: float | None, tiers: list[dict]) -> dict | None:
     """Return a metrics dict, or None if the inputs can't support an estimate."""
     tiers = [t for t in tiers if t.get("total")]
-    if not tiers or not odds or not price:
+    # No real game has better than about 1 in 2.5 overall odds; anything under 2 is a
+    # placeholder record the state has not filled in yet.
+    if not tiers or not odds or odds < 2 or not price:
         return None
     total_prizes = sum(t["total"] for t in tiers)
     unpaid_prizes = sum(t["unpaid"] for t in tiers)
@@ -80,6 +82,10 @@ def compute(price: float, odds: float | None, tiers: list[dict]) -> dict | None:
     remaining_value = sum(t["value"] * t["unpaid"] for t in tiers)
     launch_ev = launch_value / total_tickets if total_tickets else 0.0
     current_ev = remaining_value / tickets_remaining if tickets_remaining > 0 else 0.0
+    # Real games pay back roughly 50-80% at launch. Far outside that, the published odds
+    # or prize table for this game are wrong, and an estimate would mislead.
+    if not 0.25 <= launch_ev / price <= 1.2:
+        return None
 
     top = max(tiers, key=lambda t: t["value"])
     top_odds_now = (tickets_remaining / top["unpaid"]) if top["unpaid"] > 0 and tickets_remaining > 0 else None

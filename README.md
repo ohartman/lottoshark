@@ -53,11 +53,15 @@ site/data/             generated, one file per state plus index.js
 | Georgia | [galottery.com: Scratchers Top Prizes Claimed](https://www.galottery.com/en-us/games/scratchers/scratchers-top-prizes-claimed.html). galottery.com's instant-games API returns every game with all tiers (winningTickets printed, paidTickets claimed). Prices are in cents and prize amounts in dollars x 10,000. Annuitised top prizes are encoded as amount 0; the top-prizes page carries their label. Overall odds live only in each game's page JSON. |
 | Idaho | [idaholottery.com: Scratch Games remaining prizes](https://www.idaholottery.com/games/scratch?view=remaining_prizes). Drupal JSON:API on idaholottery.com: every scratch game with price, odds, percent sold, dates, thumbnail and a full prize table (printed, amount, remaining, tier odds). Tiers under $25 sometimes have no remaining count; those are filled in from the state's own percent-sold figure, which is the same assumption the metrics use anyway. |
 | Indiana | [hoosierlottery.com: Scratch-offs](https://hoosierlottery.com/games/scratch-off/). hoosierlottery.com's scratch-off listing carries each game's number, name, price, odds and art; each game page has a table of every tier (unclaimed, total). |
+| Iowa | [ialottery.com: Remaining Prizes](https://ialottery.com/Pages/Games/RemainingPrizes.aspx). One page lists claimed and unclaimed counts for every prize of $50 and up; each game's detail page lists the odds of every prize level and the overall odds. Printed counts for the small prizes are reconstructed from their odds and the print run implied by the published tiers; their remaining counts are estimated (see lotto/metrics.py). |
+| Kansas | [playonkansas.com: Scratch and Pull Tabs](https://playonkansas.com/games/scratch-and-pull-tabs). playonkansas.com is a Next.js site; the listing's server payload carries every game (number, price, dates, art) and each game page has a table of remaining prizes for every level, but no printed counts. Tickets unsold are taken as prizes remaining times the overall odds (compute_remaining_only). |
+| Kentucky | [kylottery.com: Scratch-offs available](https://www.kylottery.com/apps/scratch_offs/available_games.html). One page lists every game on sale with price, odds, dates, art and a table of prizes remaining for every level, but no printed counts. Tickets unsold are taken as prizes remaining times the overall odds (compute_remaining_only). |
 | Louisiana | [louisianalottery.com: Top Prizes Remaining](https://louisianalottery.com/top-prizes-remaining/). The top-prizes page embeds a JSON list of current scratch-offs (number, price, art, start date, link); each game page has a table of every tier with total, claimed and remaining, plus the overall odds. |
 | Maine | [mainelottery.com: Unclaimed Prizes](https://www.mainelottery.com/players_info/unclaimed_prizes.html). The unclaimed-prizes table gives each game's price, percent unsold, total unclaimed prize value and top-prize counts; the state's news articles for each game give tickets printed, overall odds and art. No prize structure is published, so the return is unclaimed value over unsold tickets (compute_aggregate). |
 | Maryland | [mdlottery.com: Scratch-Offs](https://www.mdlottery.com/games/scratch-offs/). The scratch-off finder on mdlottery.com is a WordPress shortcode loaded by AJAX; one POST returns every game as an HTML fragment with a full prize table (Prize Amount | Start | Remaining) per game. |
 | Massachusetts | [masslottery.com: Instant Tickets](https://www.masslottery.com/games/instant). The masslottery.com site is a React app over a public JSON API: /api/v1/games every game with price, odds, start date, art /api/v1/instant-game-prizes?gameID=N one game's prize tiers: printed, paid, remaining |
 | Michigan | [michiganlottery.com: Instant Games prizes remaining](https://www.michiganlottery.com/games/instant-games). michiganlottery.com is a React app over a GraphQL endpoint. Two queries: prizes remaining for every retail instant game (all tiers: starting and remaining) and the CMS game list (price, overall odds, art, launch date), joined on the IGT game id. |
+| Minnesota | [mnlottery.com: Scratch Games](https://www.mnlottery.com/games/scratch). The lottery's GameOn API lists every scratch game with price, odds, dates and art, and gives total and remaining counts for prizes of $500 and up. Each game page on mnlottery.com carries the full printed prize structure, so the smaller prizes get a printed count and an estimated remaining count (see lotto/metrics.py). |
 | Mississippi | [mslottery.com: Active Instant Games](https://www.mslottery.com/gamestatus/active/). mslottery.com's WordPress REST API lists active instant games with the prize table (original and remaining counts) as HTML in the post body; the ticket price is a taxonomy term and the overall odds and game number are on each game's page. |
 | Missouri | [molottery.com: Scratchers](https://www.molottery.com/scratchers-list.do). molottery.com's scratchers list page links every active game; each detail page has a table of every tier (total, unclaimed), the price, overall odds and dates. |
 | Nebraska | [nelottery.com: Scratch prizes remaining](https://nelottery.com/homeapp/scratch/prizesremaining/web). The prizes-remaining page lists each game's price, number, art and the remaining count for its top two or three prize levels; each game's detail page has the full printed prize structure (one row per winning combination, summed per prize) and the overall odds. Lower tiers have no remaining count, so the return is an estimate. |
@@ -75,10 +79,10 @@ site/data/             generated, one file per state plus index.js
 | Wisconsin | [wilottery.com: Scratch Games](https://wilottery.com/games/instant-games/scratch-games). Each game page gives price, odds, start date and the top prize's printed and remaining counts; its features-and-procedures page gives the approximate printed count for every prize level. Only the top prize has a remaining count, so the return is an estimate with a range. |
 
 `docs/survey/` has verified notes on the data every other state publishes, with endpoints and
-sample payloads, from a survey done in September 2026. In short: 24 states publish full
-per-tier counts; CO, DE, ME, NE, PA, VT, WI publish only top-prize counts; AR, IL, TN sit
-behind Cloudflare challenges; OH, OR, RI need credentials; ND and WY sell no scratch tickets;
-AL, AK, HI, NV, UT have no lottery.
+sample payloads, from a survey done in September 2026. Not included: AR, IL, TN sit behind Cloudflare
+challenges; OH and OR gate their APIs behind credentials embedded in their sites' scripts;
+RI needs a player session; PA and DE publish no printed counts; ND and WY sell no scratch
+tickets; AL, AK, HI, NV, UT have no lottery.
 
 ### Adding a state
 
@@ -94,12 +98,15 @@ on New York's open-data portal first).
 ## Estimated states
 
 Colorado, Nebraska and Wisconsin publish remaining counts only for their top prize levels
-but do publish the full printed prize structure. Unpublished levels are assumed to deplete
+but do publish the full printed prize structure; Iowa and Minnesota publish them only
+for prizes of $50 and $500 and up, with the rest of the structure on their game pages. Unpublished levels are assumed to deplete
 in step with sales, so their share of the return equals their launch share; the unsold
 share is estimated from the published prizes with a Beta(k+½, N−k+½) posterior and the
 site shows the 90% interval. Vermont and Maine publish total unclaimed prize money and
 percent sold instead of a prize table; the return is unclaimed value ÷ unsold tickets ÷
-price, with a range from the state's rounding of percent sold. Pennsylvania and Delaware
+price, with a range from the state's rounding of percent sold. Kansas and Kentucky publish
+remaining counts for every prize but no printed totals, so tickets unsold are taken as
+prizes unclaimed × overall odds and the launch figures are left blank. Pennsylvania and Delaware
 publish neither printed counts nor a prize structure and are not included.
 
 ## The math

@@ -131,7 +131,7 @@
       <td class="c-ret num">${ret}</td>
       <td class="c-extop num">${m ? money(m.current_return_ex_top) + (m.estimated && rangeText(m.return_ex_top_low, m.return_ex_top_high) ? `<span class="range">${rangeText(m.return_ex_top_low, m.return_ex_top_high)}</span>` : "") : ""}</td>
       <td class="c-edge num">${edge}</td>
-      <td class="c-sold num">${m ? m.pct_sold.toFixed(0) + "%" + (m.estimated && m.pct_sold_high - m.pct_sold_low >= 1 ? `<span class="range">${m.pct_sold_low.toFixed(0)}–${m.pct_sold_high.toFixed(0)}%</span>` : "") : ""}</td>
+      <td class="c-sold num">${m && m.pct_sold != null ? m.pct_sold.toFixed(0) + "%" + (m.estimated && m.pct_sold_high - m.pct_sold_low >= 1 ? `<span class="range">${m.pct_sold_low.toFixed(0)}–${m.pct_sold_high.toFixed(0)}%</span>` : "") : ""}</td>
       <td class="c-top num">${topLeft}</td>
       <td class="c-odds num">${m ? oneIn(m.odds_any_now) : ""}</td>
     </tr>`;
@@ -141,7 +141,9 @@
     const m = g.metrics;
     if (!m) return "The state has not published prize-level counts for this game yet, so there is no estimate.";
     const cmp = m.edge > 0.02 ? "better than" : m.edge < -0.02 ? "worse than" : "about the same as";
-    let s = m.launch_return == null
+    let s = m.remaining_only
+      ? `A ticket bought today returns about ${money(m.current_return)} per $1 on average. The state publishes remaining counts for every prize but not how many were printed, so tickets unsold are taken as prizes unclaimed times the overall odds.${m.current_return >= 1 ? " The unclaimed prizes are worth more than the unsold tickets." : ""}`
+      : m.launch_return == null
       ? `A ticket bought today returns about ${money(m.current_return)} per $1 on average, from the state's own figures for prize money unclaimed and tickets sold.${m.current_return >= 1 ? " The unclaimed prizes are worth more than the unsold tickets." : ""}`
       : m.current_return >= 1
       ? `The unclaimed prizes are currently worth more than the unsold tickets: about ${money(m.current_return)} back per $1, against ${money(m.launch_return)} when the game launched.`
@@ -167,8 +169,8 @@
         <dt>Odds on ticket</dt><dd>${esc(g.odds_label || "—")}</dd>
         ${m.odds_any_now != null ? `<dt>Any prize, now</dt><dd>${oneIn(m.odds_any_now)}</dd>` : ""}
         ${m.top_prize_odds_now != null ? `<dt>Top prize, now</dt><dd>${oneIn(m.top_prize_odds_now)} (${int(g.top_prize_remaining)} left)</dd>` : ""}
-        <dt>Tickets printed</dt><dd>${int(m.total_tickets)}${m.aggregate ? "" : " (est.)"}</dd>
-        <dt>Tickets unsold</dt><dd>${int(m.tickets_remaining)}, ${(100 - m.pct_sold).toFixed(1)}% (est.)</dd>
+        ${m.total_tickets != null ? `<dt>Tickets printed</dt><dd>${int(m.total_tickets)}${m.aggregate ? "" : " (est.)"}</dd>` : ""}
+        <dt>Tickets unsold</dt><dd>${int(m.tickets_remaining)}${m.pct_sold != null ? `, ${(100 - m.pct_sold).toFixed(1)}%` : ""} (est.)</dd>
         <dt>Prize money unclaimed</dt><dd>${money(m.remaining_prize_money, 0)}${m.estimated ? " (est.)" : ""}</dd>
         ${m.estimated ? `<dt>Return now, 90% range</dt><dd>${money(m.return_low)} to ${money(m.return_high)} / $1</dd>` : ""}
         ${m.launch_return != null ? `<dt>Return at launch</dt><dd>${money(m.launch_return)} / $1 (${money(m.launch_return_ex_top)} without top prize)</dd>` : ""}

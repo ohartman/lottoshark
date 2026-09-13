@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from lotto.fetch import get
-from lotto.metrics import compute, compute_aggregate
+from lotto.metrics import compute, compute_aggregate, compute_remaining_only
 from lotto.states import ALL
 
 SITE = Path(__file__).parent / "site"
@@ -108,6 +108,8 @@ def build_state(mod) -> None:
         if g.get("unclaimed_value") is not None and g.get("tickets_printed") and g.get("pct_sold") is not None:
             g["metrics"] = compute_aggregate(g["price"], g["tickets_printed"], g["pct_sold"], g["unclaimed_value"],
                                              [t for t in g["tiers"] if t.get("unpaid") is not None], g.get("pct_step", 0.01))
+        elif g["tiers"] and not any(t.get("total") for t in g["tiers"]):
+            g["metrics"] = compute_remaining_only(g["price"], g["odds"], g["tiers"])
         else:
             g["metrics"] = compute(g["price"], g["odds"], g["tiers"], g.get("pct_sold"))
     new_logos = fetch_logos(meta["code"], games)

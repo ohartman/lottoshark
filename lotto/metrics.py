@@ -282,3 +282,52 @@ def compute_aggregate(
         "published_prizes": None,
         "aggregate": True,
     }
+
+
+def compute_remaining_only(price: float, odds: float | None, tiers: list[dict]) -> dict | None:
+    """Return metrics for states that publish remaining counts for every tier but no
+    printed totals (Kansas, Kentucky). Prizes are spread evenly through the print run,
+    so the tickets still unsold are simply the prizes still unclaimed times the overall
+    odds; the return follows without knowing the print run. Launch figures and the share
+    sold are unknown."""
+    tiers = [t for t in tiers if t.get("unpaid") is not None]
+    if not tiers or not odds or odds < 2 or not price:
+        return None
+    unpaid_prizes = sum(t["unpaid"] for t in tiers)
+    if unpaid_prizes <= 0:
+        return None
+    tickets_remaining = unpaid_prizes * odds
+    remaining_value = sum(t["value"] * t["unpaid"] for t in tiers)
+    current_ev = remaining_value / tickets_remaining
+    if not 0.2 <= current_ev / price <= 3:
+        return None
+    top = max(tiers, key=lambda t: t["value"])
+    ex_top = (remaining_value - top["value"] * top["unpaid"]) / tickets_remaining
+    return {
+        "total_prizes": None,
+        "unpaid_prizes": unpaid_prizes,
+        "total_tickets": None,
+        "tickets_remaining": round(tickets_remaining),
+        "pct_sold": None,
+        "pct_sold_low": None,
+        "pct_sold_high": None,
+        "launch_ev": None,
+        "current_ev": round(current_ev, 4),
+        "launch_return": None,
+        "current_return": round(current_ev / price, 4),
+        "return_low": round(current_ev / price, 4),
+        "return_high": round(current_ev / price, 4),
+        "edge": None,
+        "launch_return_ex_top": None,
+        "current_return_ex_top": round(ex_top / price, 4),
+        "return_ex_top_low": round(ex_top / price, 4),
+        "return_ex_top_high": round(ex_top / price, 4),
+        "odds_any_now": round(odds, 2),
+        "top_prize_odds_now": round(tickets_remaining / top["unpaid"]) if top["unpaid"] else None,
+        "remaining_prize_money": round(remaining_value),
+        "has_annuity": any(t.get("annuity") for t in tiers),
+        "estimated": False,
+        "unknown_tiers": 0,
+        "published_prizes": None,
+        "remaining_only": True,
+    }

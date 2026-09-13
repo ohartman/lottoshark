@@ -35,6 +35,10 @@ def parse_prize_label(label: str, ticket_price: float = 0.0) -> tuple[float, boo
     s = label.strip().upper().replace(",", "")
     if re.search(r"\bFP\b|FREE|\d+FP\b|TICKET", s):
         return float(ticket_price), False
+    # "$1,000,000 ($50K/YR/20YRS)": the leading figure is already the annuity's total.
+    m = re.match(r"\$?\s*(\d+(?:\.\d+)?)\s*(K|M)?\s*\(.*(?:/YR|/WK|LIFE|\bLF\b|YEAR|WEEK)", s)
+    if m:
+        return float(m.group(1)) * {"K": 1_000, "M": 1_000_000}.get(m.group(2) or "", 1), True
     m = re.search(r"\$?\s*(\d+(?:\.\d+)?)\s*(K|M)?\b", s)
     if not m:
         return 0.0, False
@@ -43,7 +47,7 @@ def parse_prize_label(label: str, ticket_price: float = 0.0) -> tuple[float, boo
     m2 = re.search(r"/YR/(\d+)", s) or re.search(r"(?:A|PER)\s*YEAR\s*FOR\s*(\d+)\s*Y", s)
     if m2:
         return base * int(m2.group(1)), True
-    if "LIFE" in s:
+    if "LIFE" in s or re.search(r"\bLF\b", s):
         if weekly:
             return base * 52 * LIFE_YEARS, True
         if re.search(r"\bDAY\b|/DAY", s):

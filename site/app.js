@@ -72,7 +72,7 @@
     const stale = Date.now() - when.getTime() > 36 * 3600 * 1000;
     els.status.textContent = (stale ? "Stale data: the last successful fetch for this state was " + when.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ". " : "") +
       `${d.name}: ${live.length} games on sale, ${shown} shown. Average return ${Math.round(avg * 100)}¢ per $1; ` +
-      `${above === 0 ? "none" : above} ${above === 1 ? "game is" : "games are"} at or above $1.00. ` +
+      `${above === 0 ? "none are" : above === 1 ? "1 game is" : above + " games are"} at or above $1.00. ` +
       `Data from the state as of ${when.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${when.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}.`;
     els.sources.innerHTML = "Sources: " + d.sources.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)}</a>`).join("; ") + ".";
   }

@@ -74,6 +74,7 @@ site/data/             generated, one file per state plus index.js
 | Ohio | [ohiolottery.com: Scratch-Offs Prizes Remaining](https://www.ohiolottery.com/games/scratch-offs/prizes-remaining). ohiolottery.com renders its scratch-off pages in the browser from an API the page authorises itself. A headless browser loads the public prizes-remaining page (every game with every tier's printed and remaining counts) and the scratch-offs listing (price, odds, dates, page path); this code never touches the token. |
 | Oklahoma | [oklottery.com: Scratchers](https://oklottery.com/games/scratchers). oklottery.com is a Next.js site; the server-component payload (RSC: 1 header) of each game page embeds prizeDetails with every tier's total and remaining, plus odds, price, dates, tickets printed and art. |
 | Oregon | [oregonlottery.org: Scratch-its](https://www.oregonlottery.org/scratch-its/list/). oregonlottery.org fills its scratch-its pages in the browser from the lottery's game-info API, which the page authorises itself. A headless browser loads the public list page (every game with price, odds, dates, sell-through and unclaimed value) and each current game's page, whose API response carries every prize tier's total and remaining. |
+| Pennsylvania | [palottery.pa.gov: Scratch-Offs Prizes Remaining](https://www.palottery.pa.gov/Scratch-Offs/Prizes-Remaining.aspx); [Pennsylvania Bulletin: instant lottery game notices](https://www.pacodeandbulletin.gov/). The lottery site lists every game's six largest prizes with remaining counts, and each game page gives the overall odds; neither says how many prizes were printed. That structure is in the game's rules notice in the Pennsylvania Bulletin (a table of prize, odds and approximate winners per print run), found by searching the Bulletin for the game number. Lower tiers have no remaining count, so the return is an estimate with a range (see lotto/metrics.py). |
 | South Dakota | [lottery.sd.gov: Scratch Games](https://lottery.sd.gov/scratch-games/). lottery.sd.gov proxies IGT's instant-games API (all tiers, printed and paid, cents) and runs a headless WordPress whose GraphQL gives the slug, status and art for each game. Overall odds appear only as text on the game's page. |
 | Texas | [texaslottery.com: Scratch Ticket Prizes Remaining (CSV)](https://www.texaslottery.com/export/sites/lottery/Games/Scratch_Offs/scratchoff.csv); [texaslottery.com: Scratch Tickets](https://www.texaslottery.com/export/sites/lottery/Games/Scratch_Offs/all.html).  |
 | Vermont | [vtlottery.com: Outstanding Prizes](https://vtlottery.com/games/instant-tickets/outstanding-prizes). One table lists every game with price, tickets printed, percent sold, total unclaimed prize value and the unclaimed counts for its top prize levels. No prize structure is published, so the return comes straight from unclaimed value divided by unsold tickets (compute_aggregate), with a range from the whole-percent rounding. |
@@ -84,7 +85,7 @@ site/data/             generated, one file per state plus index.js
 
 `docs/survey/` has verified notes on the data every other state publishes, with endpoints and
 sample payloads, from a survey done in September 2026. Not included: AR, IL, TN sit behind Cloudflare
-challenges; RI needs a player session; PA and DE publish no printed counts; ND and WY sell no scratch
+challenges; RI needs a player session; DE publishes no printed counts; ND and WY sell no scratch
 tickets; AL, AK, HI, NV, UT have no lottery.
 
 ### Adding a state
@@ -109,8 +110,10 @@ site shows the 90% interval. Vermont and Maine publish total unclaimed prize mon
 percent sold instead of a prize table; the return is unclaimed value ÷ unsold tickets ÷
 price, with a range from the state's rounding of percent sold. Kansas and Kentucky publish
 remaining counts for every prize but no printed totals, so tickets unsold are taken as
-prizes unclaimed × overall odds and the launch figures are left blank. Pennsylvania and Delaware
-publish neither printed counts nor a prize structure and are not included.
+prizes unclaimed × overall odds and the launch figures are left blank. Pennsylvania's six
+remaining counts are paired with the printed structure from each game's notice in the
+Pennsylvania Bulletin. Delaware publishes neither printed counts nor a prize structure and is
+not included.
 
 ## The math
 
